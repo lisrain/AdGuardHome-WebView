@@ -52,3 +52,6 @@ jobs:
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+        # 默认 90 天会让每次 push 的 4 MB debug 包长期堆积，占满 Actions
+        # storage 配额；正式产物请发 Release（不计入配额）。
+        retention-days: 30
