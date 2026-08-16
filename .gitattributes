@@ -1,0 +1,10 @@
+# gradlew 在 Linux runner 上以 sh 执行，CRLF 行尾会让它无法运行。
+# 无论客户端 core.autocrlf 如何设置，这些文件始终保持 LF。
+* text=auto eol=lf
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+*.jar binary
+*.apk binary
+*.png binary
+*.jpg binary
+*.webp binary
