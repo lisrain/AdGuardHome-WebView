@@ -45,7 +45,10 @@ jobs:
         validate-wrappers: false
 
     - name: Build Debug APK
-      run: gradle assembleDebug
+      # 用 wrapper 而非镜像预装的 gradle：runner 镜像升到 Gradle 9.7 后，AGP 8.x
+      # 依赖的 InternalProblems API 在 9.6.0 已被移除，构建会直接失败。wrapper
+      # 把版本锁在仓库里（8.13），镜像升级不再影响构建。
+      run: ./gradlew assembleDebug
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v5
