@@ -228,6 +228,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            @SuppressLint("WebViewClientOnReceivedSslError")
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 // 内网常配自签证书，交给用户决定而不是直接中止
@@ -351,8 +352,8 @@ public class MainActivity extends AppCompatActivity {
         if (TextUtils.isEmpty(detail)) {
             errorMessage.setText(R.string.error_message);
         } else {
-            errorMessage.setText(getString(R.string.error_message)
-                    + "\n\n" + getString(R.string.error_detail, detail));
+            errorMessage.setText(getString(R.string.error_detail_full,
+                    getString(R.string.error_message), detail));
         }
         errorView.setVisibility(View.VISIBLE);
     }
