@@ -3,6 +3,7 @@ name: Build APK
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
     paths:
       - 'app/**'
       - 'gradle/**'
@@ -23,6 +24,10 @@ on:
       - 'gradlew'
       - 'gradlew.bat'
       - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -31,30 +36,42 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
 
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v5
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
 
-    - name: Setup Gradle
+    - name: Set up Gradle
       uses: gradle/actions/setup-gradle@v4
-      with:
-        cache-disabled: true
-        validate-wrappers: false
 
+    # 让每次构建复用同一个 debug 签名，否则新 APK 无法覆盖安装
+    - name: Cache debug keystore
+      uses: actions/cache@v4
+      with:
+        path: ~/.android/debug.keystore
+        key: debug-keystore-v1
+
+    # 用 wrapper 而非镜像预装的 gradle：runner 镜像升级不再影响构建
     - name: Build Debug APK
-      # 用 wrapper 而非镜像预装的 gradle：runner 镜像升到 Gradle 9.7 后，AGP 8.x
-      # 依赖的 InternalProblems API 在 9.6.0 已被移除，构建会直接失败。wrapper
-      # 把版本锁在仓库里（8.13），镜像升级不再影响构建。
-      run: ./gradlew assembleDebug
+      env:
+        VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || '1.0' }}
+      run: ./gradlew assembleDebug -PversionName="$VERSION_NAME" -PversionCode="${{ github.run_number }}"
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v5
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
-        # 默认 90 天会让每次 push 的 4 MB debug 包长期堆积，占满 Actions
-        # storage 配额；正式产物请发 Release（不计入配额）。
+        # 默认 90 天会让每次 push 的 debug 包长期堆积，占满 Actions storage 配额
         retention-days: 30
+
+    - name: Publish GitHub release
+      if: github.ref_type == 'tag'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: app/build/outputs/apk/debug/app-debug.apk
+        generate_release_notes: true
