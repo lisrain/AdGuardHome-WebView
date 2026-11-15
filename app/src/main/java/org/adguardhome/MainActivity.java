@@ -1,5 +1,6 @@
 package org.adguardhome;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
@@ -147,24 +148,26 @@ public class MainActivity extends AppCompatActivity {
                 == Configuration.UI_MODE_NIGHT_YES;
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     private void setupWebView() {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
-        settings.setBuiltInZoomControls(true);
-        settings.setDisplayZoomControls(false);
-        settings.setSupportZoom(true);
-        settings.setAllowFileAccess(true);
+        // AdGuard Home 是响应式布局，缩放只会和下拉刷新争抢手势
+        settings.setBuiltInZoomControls(false);
+        settings.setSupportZoom(false);
+        settings.setAllowFileAccess(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
 
-        boolean dark = isDarkMode();
+        // 页面自带 color-scheme 适配，强制变暗反而会二次污染配色
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            settings.setAlgorithmicDarkeningAllowed(dark);
+            settings.setAlgorithmicDarkeningAllowed(false);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            settings.setForceDark(dark ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_AUTO);
+            settings.setForceDark(WebSettings.FORCE_DARK_OFF);
         }
+        webView.setBackgroundColor(isDarkMode() ? 0xFF15171A : 0xFFFFFFFF);
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -460,12 +463,17 @@ public class MainActivity extends AppCompatActivity {
             isRefreshing = true;
             webView.reload();
         });
+
+        // SPA 内部有自己的滚动容器，只有页面真正滚到顶部时才允许下拉刷新
+        webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) ->
+                swipeRefresh.setEnabled(scrollY == 0));
     }
 
     private void stopRefreshing() {
         refreshHandler.removeCallbacksAndMessages(null);
         isRefreshing = false;
         swipeRefresh.setRefreshing(false);
+        swipeRefresh.setEnabled(webView == null || webView.getScrollY() == 0);
     }
 
     @Override
