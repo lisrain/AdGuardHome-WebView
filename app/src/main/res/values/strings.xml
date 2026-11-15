@@ -3,7 +3,7 @@
 
     <string name="error_title">无法连接到 AdGuard Home</string>
     <string name="error_message">请确认 AdGuard Home 服务正在运行，然后重试。</string>
-    <string name="error_detail">错误信息：%1$s</string>
+    <string name="error_detail_full">%1$s\n\n错误信息：%2$s</string>
     <string name="error_retry">重试</string>
 
     <string name="no_app_to_open">没有可以打开该链接的应用</string>
