@@ -14,4 +14,15 @@
     <string name="ssl_error_message">%1$s 的证书无法验证。继续访问可能存在风险。</string>
     <string name="ssl_error_continue">继续访问</string>
     <string name="ssl_error_cancel">取消</string>
+
+    <string name="settings_change">更改地址</string>
+    <string name="settings_title">AdGuard Home 地址</string>
+    <string name="settings_hint">http://127.0.0.1:3000</string>
+    <string name="settings_apply">保存</string>
+    <string name="settings_cancel">取消</string>
+    <string name="settings_detect">自动检测</string>
+    <string name="settings_detecting">正在读取模块配置…</string>
+    <string name="settings_detect_failed">读取失败，请确认已授予 root 权限</string>
+    <string name="settings_detected">已切换到 %1$s</string>
+    <string name="settings_invalid">地址格式不正确</string>
 </resources>
