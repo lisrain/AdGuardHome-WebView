@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -16,7 +17,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.RenderProcessGoneDetail;
+import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -34,6 +38,8 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -80,7 +86,12 @@ public class MainActivity extends AppCompatActivity {
         setupErrorView();
         setupBackNavigation();
 
-        webView.loadUrl(targetUrl);
+        if (savedInstanceState != null) {
+            webView.restoreState(savedInstanceState);
+        }
+        if (webView.getUrl() == null) {
+            webView.loadUrl(targetUrl);
+        }
     }
 
     private void setupBackNavigation() {
@@ -208,7 +219,45 @@ public class MainActivity extends AppCompatActivity {
                     showError(error.getDescription());
                 }
             }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                // 内网常配自签证书，交给用户决定而不是直接中止
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle(R.string.ssl_error_title)
+                        .setMessage(getString(R.string.ssl_error_message, error.getUrl()))
+                        .setPositiveButton(R.string.ssl_error_continue,
+                                (dialog, which) -> handler.proceed())
+                        .setNegativeButton(R.string.ssl_error_cancel,
+                                (dialog, which) -> handler.cancel())
+                        .setOnCancelListener(dialog -> handler.cancel())
+                        .show();
+            }
+
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                // 渲染进程被系统回收时若不处理，整个应用会跟着崩溃
+                rebuildWebView();
+                return true;
+            }
         });
+    }
+
+    private void rebuildWebView() {
+        if (pendingFileCallback != null) {
+            pendingFileCallback.onReceiveValue(null);
+            pendingFileCallback = null;
+        }
+        swipeRefresh.removeAllViews();
+        if (webView != null) {
+            webView.destroy();
+        }
+        webView = new WebView(this);
+        swipeRefresh.addView(webView, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setupWebView();
+        setupSwipeRefresh();
+        webView.loadUrl(targetUrl);
     }
 
     private void setupErrorView() {
@@ -345,10 +394,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (webView != null) {
+            webView.saveState(outState);
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         refreshHandler.removeCallbacksAndMessages(null);
+        if (pendingFileCallback != null) {
+            pendingFileCallback.onReceiveValue(null);
+            pendingFileCallback = null;
+        }
         if (webView != null) {
+            ViewGroup parent = (ViewGroup) webView.getParent();
+            if (parent != null) {
+                parent.removeView(webView);
+            }
+            webView.stopLoading();
+            webView.loadUrl("about:blank");
+            webView.clearHistory();
             webView.destroy();
+            webView = null;
         }
         super.onDestroy();
     }

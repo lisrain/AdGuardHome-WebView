@@ -9,4 +9,9 @@
     <string name="no_app_to_open">没有可以打开该链接的应用</string>
     <string name="download_started">已开始下载</string>
     <string name="download_failed">无法下载该文件</string>
+
+    <string name="ssl_error_title">证书无效</string>
+    <string name="ssl_error_message">%1$s 的证书无法验证。继续访问可能存在风险。</string>
+    <string name="ssl_error_continue">继续访问</string>
+    <string name="ssl_error_cancel">取消</string>
 </resources>
