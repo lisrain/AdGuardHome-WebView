@@ -10,8 +10,9 @@ android {
         applicationId "org.adguardhome"
         minSdk 23
         targetSdk 37
-        versionCode 1
-        versionName "1.0"
+        // CI 通过 -PversionName/-PversionCode 注入，本地构建保留默认值
+        versionCode((findProperty('versionCode') ?: 1) as int)
+        versionName((findProperty('versionName') ?: '1.0') as String)
     }
 
     buildTypes {
