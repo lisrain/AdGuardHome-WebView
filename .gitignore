@@ -10,6 +10,11 @@
 local.properties
 /app/build
 
+# 签名材料
+keystore.properties
+*.jks
+*.keystore
+
 # 本地导出的构建产物
 /apk
 /app-debug

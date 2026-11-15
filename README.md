@@ -21,10 +21,22 @@
 需要 JDK 17+ 和 Android SDK 37。
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleDebug    # 调试包
+./gradlew assembleRelease  # 正式包（R8 压缩 + 正式签名）
 ```
 
-产物位于 `app/build/outputs/apk/debug/app-debug.apk`。本地构建前在 `local.properties` 里填好 `sdk.dir`。
+产物位于 `app/build/outputs/apk/`。本地构建前在 `local.properties` 里填好 `sdk.dir`。
+
+正式签名需要在项目根目录放一份 `keystore.properties`（已被忽略，不会提交）：
+
+```properties
+storeFile=C:/path/to/lisrain.jks
+storePassword=******
+keyAlias=lisrain
+keyPassword=******
+```
+
+缺少该文件时，release 会退回 debug 签名，保证产物仍可安装。
 
 ## 发布
 
@@ -35,7 +47,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-CI 会缓存 debug keystore，保证后续版本的 APK 能覆盖安装。`versionName` 取自标签名，`versionCode` 取自 Actions 的运行序号。
+CI 从仓库 Secrets 还原正式签名（`KEYSTORE_BASE64`、`STORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`），`versionName` 取自标签名，`versionCode` 取自 Actions 运行序号。
 
 ## 地址配置
 
