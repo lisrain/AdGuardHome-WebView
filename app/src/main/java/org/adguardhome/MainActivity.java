@@ -31,6 +31,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -61,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
     private String targetUrl = TARGET_URL;
 
     private static final String TARGET_URL = "http://127.0.0.1:3000";
+    private static final String PREFS_NAME = "settings";
+    private static final String KEY_TARGET_URL = "target_url";
     private static final long REFRESH_TIMEOUT_MS = 8000;
 
     @Override
@@ -70,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
 
         setContentView(R.layout.activity_main);
+
+        targetUrl = getTargetUrl();
 
         swipeRefresh = findViewById(R.id.swipeRefresh);
         webView = findViewById(R.id.webview);
@@ -265,6 +270,76 @@ public class MainActivity extends AppCompatActivity {
         retryButton.setOnClickListener(v -> {
             hideError();
             webView.reload();
+        });
+        errorView.findViewById(R.id.settingsButton)
+                .setOnClickListener(v -> showSettingsDialog());
+    }
+
+    private String getTargetUrl() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getString(KEY_TARGET_URL, TARGET_URL);
+    }
+
+    private void saveTargetUrl(String url) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putString(KEY_TARGET_URL, url)
+                .apply();
+    }
+
+    private void showSettingsDialog() {
+        View content = getLayoutInflater().inflate(R.layout.dialog_settings, null);
+        EditText input = content.findViewById(R.id.urlInput);
+        input.setText(targetUrl);
+        input.setSelection(input.getText().length());
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.settings_title)
+                .setView(content)
+                .setPositiveButton(R.string.settings_apply,
+                        (dialog, which) -> applyTargetUrl(input.getText().toString()))
+                .setNeutralButton(R.string.settings_detect,
+                        (dialog, which) -> detectTargetUrl())
+                .setNegativeButton(R.string.settings_cancel, null)
+                .show();
+    }
+
+    private void applyTargetUrl(String raw) {
+        String url = normalizeUrl(raw);
+        if (url == null) {
+            Toast.makeText(this, R.string.settings_invalid, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        saveTargetUrl(url);
+        targetUrl = url;
+        hideError();
+        webView.loadUrl(url);
+    }
+
+    private String normalizeUrl(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        if (value.isEmpty()) {
+            return null;
+        }
+        if (!value.startsWith("http://") && !value.startsWith("https://")) {
+            value = "http://" + value;
+        }
+        return Uri.parse(value).getHost() == null ? null : value;
+    }
+
+    private void detectTargetUrl() {
+        Toast.makeText(this, R.string.settings_detecting, Toast.LENGTH_SHORT).show();
+        RootConfigReader.detect(url -> {
+            if (url == null) {
+                Toast.makeText(this, R.string.settings_detect_failed, Toast.LENGTH_LONG).show();
+                return;
+            }
+            applyTargetUrl(url);
+            Toast.makeText(this, getString(R.string.settings_detected, url), Toast.LENGTH_LONG)
+                    .show();
         });
     }
 
