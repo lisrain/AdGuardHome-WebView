@@ -124,14 +124,14 @@ public class MainActivity extends AppCompatActivity {
         final int baseRight = root.getPaddingRight();
         final int baseBottom = root.getPaddingBottom();
 
-        // EdgeToEdge 下必须自己把状态栏和导航栏占用的空间还回去，否则页面顶部和底部会被系统栏遮挡
+        // 顶部避让状态栏；底部保持沉浸，让页面背景一直铺到手势条下方
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(
                     baseLeft + systemBars.left,
                     baseTop + systemBars.top,
                     baseRight + systemBars.right,
-                    baseBottom + systemBars.bottom);
+                    baseBottom);
             return insets;
         });
 
