@@ -9,3 +9,7 @@
 .cxx
 local.properties
 /app/build
+
+# 本地导出的构建产物
+/apk
+/app-debug
