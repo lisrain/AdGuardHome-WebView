@@ -12,6 +12,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -45,13 +46,24 @@ public class MainActivity extends AppCompatActivity {
         setupSystemBars();
         setupWebView();
         setupSwipeRefresh();
+        setupBackNavigation();
 
         webView.loadUrl(TARGET_URL);
     }
 
-    @Override
-    public void onBackPressed() {
-        finish();
+    private void setupBackNavigation() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (webView != null && webView.canGoBack()) {
+                    webView.goBack();
+                    return;
+                }
+                // 没有可回退的历史时交还系统，走默认的退出流程
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+            }
+        });
     }
 
     private void setupSystemBars() {
