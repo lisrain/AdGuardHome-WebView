@@ -24,7 +24,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
-    private View statusBarPlaceholder;
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
     private boolean isRefreshing = false;
 
@@ -39,7 +38,6 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        statusBarPlaceholder = findViewById(R.id.statusBarPlaceholder);
         swipeRefresh = findViewById(R.id.swipeRefresh);
         webView = findViewById(R.id.webview);
 
@@ -69,22 +67,34 @@ public class MainActivity extends AppCompatActivity {
     private void setupSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+        View root = findViewById(R.id.main);
+        final int baseLeft = root.getPaddingLeft();
+        final int baseTop = root.getPaddingTop();
+        final int baseRight = root.getPaddingRight();
+        final int baseBottom = root.getPaddingBottom();
+
+        // EdgeToEdge 下必须自己把状态栏和导航栏占用的空间还回去，否则页面顶部和底部会被系统栏遮挡
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-
-            if (statusBarPlaceholder != null) {
-                statusBarPlaceholder.getLayoutParams().height = systemBars.top;
-                statusBarPlaceholder.requestLayout();
-            }
-
+            v.setPadding(
+                    baseLeft + systemBars.left,
+                    baseTop + systemBars.top,
+                    baseRight + systemBars.right,
+                    baseBottom + systemBars.bottom);
             return insets;
         });
 
         WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         if (controller != null) {
-            boolean isDarkMode = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+            boolean isDarkMode = isDarkMode();
             controller.setAppearanceLightStatusBars(!isDarkMode);
+            controller.setAppearanceLightNavigationBars(!isDarkMode);
         }
+    }
+
+    private boolean isDarkMode() {
+        return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
     }
 
     private void setupWebView() {
@@ -99,11 +109,11 @@ public class MainActivity extends AppCompatActivity {
         settings.setAllowFileAccess(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
 
-        boolean isDarkMode = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        boolean dark = isDarkMode();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            settings.setAlgorithmicDarkeningAllowed(isDarkMode);
+            settings.setAlgorithmicDarkeningAllowed(dark);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            settings.setForceDark(isDarkMode ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_AUTO);
+            settings.setForceDark(dark ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_AUTO);
         }
 
         webView.setWebChromeClient(new WebChromeClient());
