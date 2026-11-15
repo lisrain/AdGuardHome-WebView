@@ -1,157 +1,59 @@
-# Adguard Home WebView App
+# AdGuardHome WebView
 
-一个简单的Android应用，启动后全屏打开Adguard Home管理界面。
+[AdGuardHome for Root](https://github.com/twoone-3/AdGuardHomeForRoot) 的配套管理面板。一个只做一件事的 Android WebView 外壳：打开手机本机的 AdGuard Home 后台。
 
-> 本项目全程由AI自动化Vibe Coding开发完成，使用GitHub Actions自动构建APK。如有Bug或建议，欢迎反馈！
+> 由 AI 辅助开发，GitHub Actions 自动构建。
 
-## 功能特点
+## 功能
 
-- 启动后全屏显示
-- 打开本地Adguard Home管理界面 (127.0.0.1:3000)
-- 沉浸式导航栏（小白条导航栏沉浸）
-- 支持Android 7.0 (API 24) 及以上版本
-- 使用GitHub Actions自动构建APK
-- 自动化CI/CD流程，仅在源码更新时触发构建
+- 默认打开 `http://127.0.0.1:3000`
+- 地址可修改，并可自动探测 Magisk 模块里配置的监听地址
+- 返回手势跟随网页历史，退无可退时才退出应用
+- 连接失败时显示可重试的错误页，而不是 Chromium 的白屏
+- 支持文件上传（过滤器导入）与下载（配置、日志导出，自动携带登录 Cookie）
+- 站外链接交给系统浏览器，`intent://` 链接交给对应应用
+- 深色模式交给网页自身的 `color-scheme`，不做强制反色
+- WebView 渲染进程被系统回收后自动重建，不会连带崩溃
+- 自适应图标、edge-to-edge 布局
 
-## 项目结构
+## 构建
 
-```
-webview-app/
-├── .github/workflows/build.yml    # GitHub Actions工作流
-├── app/
-│   ├── src/main/
-│   │   ├── java/org/adguardhome/
-│   │   │   └── MainActivity.java  # 主Activity
-│   │   ├── res/
-│   │   │   ├── layout/
-│   │   │   │   └── activity_main.xml
-│   │   │   ├── mipmap-*/          # 应用图标
-│   │   │   └── values/
-│   │   │       ├── strings.xml    # 字符串资源
-│   │   │       └── themes.xml     # 主题资源
-│   │   └── AndroidManifest.xml    # 应用配置
-│   └── build.gradle               # 模块构建配置
-├── gradle/wrapper/                # Gradle包装器
-├── build.gradle                   # 项目构建配置
-├── settings.gradle                # 项目设置
-└── README.md                      # 项目说明
-```
+需要 JDK 17+ 和 Android SDK 37。
 
-## 快速开始
-
-### 1. 上传到GitHub
-
-#### 方法一：使用脚本（Windows）
-```batch
-upload-to-github.bat
-```
-
-#### 方法二：手动操作
 ```bash
-# 初始化Git仓库
-git init
-
-# 添加所有文件
-git add .
-
-# 提交代码
-git commit -m "Initial commit: Adguard Home WebView app"
-
-# 添加远程仓库（替换为你的仓库地址）
-git remote add origin https://github.com/your-username/your-repo.git
-
-# 推送到GitHub
-git push -u origin master
+./gradlew assembleDebug
 ```
 
-### 2. 自动构建APK
+产物位于 `app/build/outputs/apk/debug/app-debug.apk`。本地构建前在 `local.properties` 里填好 `sdk.dir`。
 
-推送到GitHub后，GitHub Actions会自动构建APK：
+## 发布
 
-1. 访问你的GitHub仓库
-2. 点击 "Actions" 标签页
-3. 查看构建状态
-4. 构建完成后，点击最新的工作流
-5. 在 "Artifacts" 部分下载APK
+推送 `v*` 标签即可自动构建并创建 GitHub Release：
 
-### 3. 安装APK
-
-1. 在Android手机上启用 "允许安装未知来源应用"
-2. 下载APK文件
-3. 点击安装
-
-## 配置说明
-
-### 修改目标URL
-
-编辑 `app/src/main/java/org/adguardhome/MainActivity.java` 文件：
-
-```java
-private static final String TARGET_URL = "http://127.0.0.1:3000";
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-### 应用信息
+CI 会缓存 debug keystore，保证后续版本的 APK 能覆盖安装。`versionName` 取自标签名，`versionCode` 取自 Actions 的运行序号。
+
+## 地址配置
+
+连不上时，错误页提供两个入口：
+
+- **更改地址**：手动填写，例如 `http://127.0.0.1:3000`
+- **自动检测**：通过 `su` 读取 `/data/adb/agh/bin/AdGuardHome.yaml` 中的 `http.address`，需要授予 root 权限
+
+## 版本
 
 | 项目 | 值 |
 |------|-----|
-| 应用名称 | Adguard Home |
-| 包名 | org.adguardhome |
-| 最低支持版本 | Android 7.0 (API 24) |
-| 目标版本 | Android 16 (API 36) |
-| 编译版本 | Android 16 (API 36) |
-| 版本号 | 1.0 |
-| 版本名称 | 1.0 |
-| Gradle版本 | 8.13 |
-| AGP版本 | 8.12.0 |
-| 16KB页面大小支持 | 已适配 |
-
-## 技术细节
-
-### 沉浸式导航栏实现
-
-应用使用 `WindowInsetsController` API（Android 11+）实现沉浸式导航栏：
-
-```java
-if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-    getWindow().setDecorFitsSystemWindows(false);
-    WindowInsetsController controller = getWindow().getInsetsController();
-    if (controller != null) {
-        controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-        controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-    }
-}
-```
-
-### WebView配置
-
-- 启用JavaScript
-- 启用DOM存储
-- 支持缩放
-- 禁止跳转到外部浏览器
-
-## 常见问题
-
-### Q: 为什么APK无法安装？
-A: 请确保在手机设置中启用了"允许安装未知来源应用"。
-
-### Q: 如何修改应用图标？
-A: 替换 `app/src/main/res/mipmap-*/` 目录中的图标文件。
-
-### Q: 如何修改应用名称？
-A: 编辑 `app/src/main/res/values/strings.xml` 文件中的 `app_name` 字符串。
-
-### Q: GitHub Actions构建失败怎么办？
-A: 检查以下几点：
-1. 确保仓库是公开的（或启用GitHub Actions）
-2. 检查工作流文件语法
-3. 查看构建日志中的错误信息
-
-### Q: 为什么只有源码更新时才会触发构建？
-A: 为了节省GitHub Actions运行时间，我们配置了工作流仅在源码文件（app/、gradle/、build.gradle等）更新时触发。README或文档更新不会触发构建。
-
-### Q: 如何反馈Bug或建议？
-A: 请在GitHub Issues中提交反馈，我们会及时处理。
+| applicationId | `org.adguardhome` |
+| minSdk | 23（Android 6.0） |
+| targetSdk / compileSdk | 37（Android 17） |
+| Gradle | 9.8 |
+| AGP | 9.5.1 |
 
 ## 许可证
 
-本项目仅用于学习和测试目的。由AI自动化开发，欢迎Star和Fork！
+仅供学习与个人使用。
