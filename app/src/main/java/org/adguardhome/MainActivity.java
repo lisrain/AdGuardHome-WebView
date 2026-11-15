@@ -1,15 +1,21 @@
 package org.adguardhome;
 
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.View;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
@@ -24,6 +30,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
+    private View errorView;
+    private TextView errorMessage;
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
     private boolean isRefreshing = false;
 
@@ -40,10 +48,13 @@ public class MainActivity extends AppCompatActivity {
 
         swipeRefresh = findViewById(R.id.swipeRefresh);
         webView = findViewById(R.id.webview);
+        errorView = findViewById(R.id.errorView);
+        errorMessage = findViewById(R.id.errorMessage);
 
         setupSystemBars();
         setupWebView();
         setupSwipeRefresh();
+        setupErrorView();
         setupBackNavigation();
 
         webView.loadUrl(TARGET_URL);
@@ -119,18 +130,49 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                hideError();
                 if (!isRefreshing) {
                     return;
                 }
-                refreshHandler.postDelayed(() -> stopRefreshing(), REFRESH_TIMEOUT_MS);
+                refreshHandler.postDelayed(MainActivity.this::stopRefreshing, REFRESH_TIMEOUT_MS);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 stopRefreshing();
             }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    showError(error.getDescription());
+                }
+            }
         });
+    }
+
+    private void setupErrorView() {
+        Button retryButton = errorView.findViewById(R.id.retryButton);
+        retryButton.setOnClickListener(v -> {
+            hideError();
+            webView.reload();
+        });
+    }
+
+    private void showError(CharSequence detail) {
+        stopRefreshing();
+        if (TextUtils.isEmpty(detail)) {
+            errorMessage.setText(R.string.error_message);
+        } else {
+            errorMessage.setText(getString(R.string.error_message)
+                    + "\n\n" + getString(R.string.error_detail, detail));
+        }
+        errorView.setVisibility(View.VISIBLE);
+    }
+
+    private void hideError() {
+        errorView.setVisibility(View.GONE);
     }
 
     private void setupSwipeRefresh() {
