@@ -1,14 +1,26 @@
 package org.adguardhome;
 
+import android.app.Activity;
+import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.Context;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.view.View;
+import android.webkit.CookieManager;
+import android.webkit.URLUtil;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebChromeClient.FileChooserParams;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -16,9 +28,12 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -34,6 +49,10 @@ public class MainActivity extends AppCompatActivity {
     private TextView errorMessage;
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
     private boolean isRefreshing = false;
+
+    private ValueCallback<Uri[]> pendingFileCallback;
+    private ActivityResultLauncher<Intent> filePickerLauncher;
+    private String targetUrl = TARGET_URL;
 
     private static final String TARGET_URL = "http://127.0.0.1:3000";
     private static final long REFRESH_TIMEOUT_MS = 8000;
@@ -51,13 +70,17 @@ public class MainActivity extends AppCompatActivity {
         errorView = findViewById(R.id.errorView);
         errorMessage = findViewById(R.id.errorMessage);
 
+        filePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> deliverFileResult(result.getResultCode(), result.getData()));
+
         setupSystemBars();
         setupWebView();
         setupSwipeRefresh();
         setupErrorView();
         setupBackNavigation();
 
-        webView.loadUrl(TARGET_URL);
+        webView.loadUrl(targetUrl);
     }
 
     private void setupBackNavigation() {
@@ -127,8 +150,44 @@ public class MainActivity extends AppCompatActivity {
             settings.setForceDark(dark ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_AUTO);
         }
 
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                if (pendingFileCallback != null) {
+                    pendingFileCallback.onReceiveValue(null);
+                }
+                pendingFileCallback = callback;
+                try {
+                    filePickerLauncher.launch(params.createIntent());
+                    return true;
+                } catch (ActivityNotFoundException e) {
+                    pendingFileCallback = null;
+                    return false;
+                }
+            }
+        });
+
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
+            if (isSameOrigin(url)) {
+                downloadFile(url, userAgent, contentDisposition, mimeType);
+            } else {
+                openExternally(Uri.parse(url));
+            }
+        });
+
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return handleNavigation(request.getUrl());
+            }
+
+            @SuppressWarnings("deprecation")
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleNavigation(Uri.parse(url));
+            }
+
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 hideError();
@@ -173,6 +232,96 @@ public class MainActivity extends AppCompatActivity {
 
     private void hideError() {
         errorView.setVisibility(View.GONE);
+    }
+
+    /** 同源链接交给 WebView，其余交给系统浏览器或对应的外部应用。 */
+    private boolean handleNavigation(Uri uri) {
+        String scheme = uri.getScheme();
+        if (scheme == null) {
+            return false;
+        }
+        if ("http".equals(scheme) || "https".equals(scheme)) {
+            return !isSameOrigin(uri.toString());
+        }
+        openExternally(uri);
+        return true;
+    }
+
+    private boolean isSameOrigin(String url) {
+        Uri base = Uri.parse(targetUrl);
+        Uri target = Uri.parse(url);
+        return TextUtils.equals(base.getScheme(), target.getScheme())
+                && TextUtils.equals(base.getHost(), target.getHost())
+                && base.getPort() == target.getPort();
+    }
+
+    private void openExternally(Uri uri) {
+        try {
+            Intent intent = "intent".equals(uri.getScheme())
+                    ? Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
+                    : new Intent(Intent.ACTION_VIEW, uri);
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.no_app_to_open, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void downloadFile(String url, String userAgent, String contentDisposition, String mimeType) {
+        try {
+            String fileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+            if (!TextUtils.isEmpty(mimeType)) {
+                request.setMimeType(mimeType);
+            }
+            if (!TextUtils.isEmpty(userAgent)) {
+                request.addRequestHeader("User-Agent", userAgent);
+            }
+            // AdGuard Home 的导出接口依赖登录 Cookie，DownloadManager 不会自动带上
+            String cookie = CookieManager.getInstance().getCookie(url);
+            if (cookie != null) {
+                request.addRequestHeader("Cookie", cookie);
+            }
+            request.setTitle(fileName);
+            request.setNotificationVisibility(
+                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                request.setDestinationInExternalPublicDir(
+                        Environment.DIRECTORY_DOWNLOADS, fileName);
+            } else {
+                // Android 10 以下写入公共目录需要存储权限，这里退回到应用专属目录避免授权
+                request.setDestinationInExternalFilesDir(
+                        this, Environment.DIRECTORY_DOWNLOADS, fileName);
+            }
+
+            DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+            if (manager == null) {
+                throw new IllegalStateException("DownloadManager is unavailable");
+            }
+            manager.enqueue(request);
+            Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.download_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void deliverFileResult(int resultCode, Intent data) {
+        if (pendingFileCallback == null) {
+            return;
+        }
+        Uri[] uris = null;
+        if (resultCode == Activity.RESULT_OK && data != null) {
+            ClipData clipData = data.getClipData();
+            if (clipData != null) {
+                uris = new Uri[clipData.getItemCount()];
+                for (int i = 0; i < clipData.getItemCount(); i++) {
+                    uris[i] = clipData.getItemAt(i).getUri();
+                }
+            } else if (data.getData() != null) {
+                uris = new Uri[]{data.getData()};
+            }
+        }
+        pendingFileCallback.onReceiveValue(uris);
+        pendingFileCallback = null;
     }
 
     private void setupSwipeRefresh() {
