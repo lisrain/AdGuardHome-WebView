@@ -5,16 +5,24 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <path
-        android:fillColor="#67B279"
-        android:pathData="M36,32 L72,32 Q75,32 75,35 L75,58 Q75,76 54,84 Q33,76 33,58 L33,35 Q33,32 36,32 Z" />
-
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M44,54 L52,63 L65,45"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeWidth="7" />
+    <!-- 经典 AdGuard logo，居中放在自适应图标的安全区域内喵 -->
+    <group
+        android:scaleX="1.1707317"
+        android:scaleY="1.1707317"
+        android:translateX="30"
+        android:translateY="30">
+        <path
+            android:fillColor="#67B279"
+            android:pathData="M20.5,0 C26.908,0 34.637,1.47 41,4.706 C41,11.694 41.087,29.104 20.5,41 C-0.088,29.104 0,11.694 0,4.706 C6.363,1.47 14.092,0 20.5,0 Z" />
+        <group>
+            <clip-path android:pathData="M20.5,0 H41 V41 H20.5 Z" />
+            <path
+                android:fillColor="#69BC73"
+                android:pathData="M20.5,0 C26.908,0 34.637,1.47 41,4.706 C41,11.694 41.087,29.104 20.5,41 C-0.088,29.104 0,11.694 0,4.706 C6.363,1.47 14.092,0 20.5,0 Z" />
+        </group>
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M20.234,27 L33,11.344 c-0.935,-0.682 -1.756,-0.2 -2.208,0.172 l-0.016,0.001 -10.644,10.076 -4.01,-4.392 c-1.913,-2.011 -4.514,-0.477 -5.122,-0.072 L20.234,27 Z" />
+    </group>
 
 </vector>

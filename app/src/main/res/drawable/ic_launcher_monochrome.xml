@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 主题图标用镂空勾号，避免前景被统一着色后失去 logo 细节喵 -->
+    <group
+        android:scaleX="1.1707317"
+        android:scaleY="1.1707317"
+        android:translateX="30"
+        android:translateY="30">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M20.5,0 C26.908,0 34.637,1.47 41,4.706 C41,11.694 41.087,29.104 20.5,41 C-0.088,29.104 0,11.694 0,4.706 C6.363,1.47 14.092,0 20.5,0 Z M20.234,27 L33,11.344 c-0.935,-0.682 -1.756,-0.2 -2.208,0.172 l-0.016,0.001 -10.644,10.076 -4.01,-4.392 c-1.913,-2.011 -4.514,-0.477 -5.122,-0.072 L20.234,27 Z" />
+    </group>
+
+</vector>
