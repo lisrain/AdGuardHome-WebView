@@ -69,8 +69,8 @@ jobs:
     # 用 wrapper 而非镜像预装的 gradle，镜像升级不再影响构建
     - name: Build release APK
       env:
-        VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || '1.0' }}
-      run: ./gradlew assembleRelease -PversionName="$VERSION_NAME" -PversionCode="${{ github.run_number }}"
+        VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || '1.1' }}
+      run: ./gradlew assembleRelease -PversionName="${VERSION_NAME#v}" -PversionCode="${{ github.run_number }}"
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v7
