@@ -50,6 +50,8 @@ git push origin v1.0.0
 
 CI 从仓库 Secrets 还原正式签名（`KEYSTORE_BASE64`、`STORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`），`versionName` 取自标签名，`versionCode` 取自 Actions 运行序号。
 
+发版时先推 `master` 再推标签即可：两条 run 指向同一个 commit，按 commit 去重后分支那条会被自动取消，只保留负责发布的标签构建。
+
 ## 地址配置
 
 连不上时，错误页提供两个入口：

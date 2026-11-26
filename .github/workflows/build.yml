@@ -29,10 +29,17 @@ on:
 permissions:
   contents: write
 
+# 发版时先推 master 再推标签，两条 run 指向同一个 commit。
+# 按 commit 去重后，后触发的标签构建会接管，分支那条自动取消，避免重复构建。
+concurrency:
+  group: build-${{ github.sha }}
+  cancel-in-progress: true
+
 jobs:
   build:
     # 固定到具体镜像，避免 ubuntu-latest 迁移时构建环境被动变化
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     steps:
     - name: Checkout code
