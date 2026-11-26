@@ -50,6 +50,11 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
@@ -57,6 +62,14 @@ public class MainActivity extends AppCompatActivity {
     private TextView errorMessage;
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
     private boolean isRefreshing = false;
+
+    // CookieManager.flush() 会阻塞并做磁盘 I/O，只能在后台线程调用
+    private final Executor cookieFlushExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "cookie-flush");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final AtomicBoolean cookieFlushPending = new AtomicBoolean();
 
     private ValueCallback<Uri[]> pendingFileCallback;
     private ActivityResultLauncher<Intent> filePickerLauncher;
@@ -150,6 +163,13 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("SetJavaScriptEnabled")
     private void setupWebView() {
+        // 接收 Cookie 的开关默认是开的，但部分定制系统会改掉这个全局策略；
+        // 显式声明一次，避免登录 Cookie 被静默丢弃。
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        // 反代 + 单点登录时登录页和后台可能不同源，第三方 Cookie 必须放行
+        cookieManager.setAcceptThirdPartyCookies(webView, true);
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -210,6 +230,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 hideError();
+                // 登录响应里的 Set-Cookie 此时已经写入，先落盘一次，
+                // 不依赖首页资源全部加载完成
+                flushCookies();
                 if (!isRefreshing) {
                     return;
                 }
@@ -219,6 +242,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 stopRefreshing();
+                // 登录成功会整页跳转到后台首页，此时 Cookie 刚写入，立刻落盘
+                flushCookies();
             }
 
             @Override
@@ -250,6 +275,33 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
         });
+    }
+
+    /**
+     * 把内存里的 Cookie 写进磁盘。
+     *
+     * <p>WebView 平时只把 Cookie 放在内存里，靠自己的后台任务慢慢持久化。进程被系统回收、
+     * 或者用户从最近任务里划掉应用时，这次持久化未必来得及完成，下次启动就会退回登录页。
+     * 页面加载完成和进入后台时各冲洗一次，能把丢失窗口压到最小。</p>
+     */
+    private void flushCookies() {
+        if (!cookieFlushPending.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            cookieFlushExecutor.execute(() -> {
+                try {
+                    CookieManager.getInstance().flush();
+                } catch (RuntimeException | Error e) {
+                    // 渲染进程已销毁或 WebView provider 不可用时冲洗失败，
+                    // 下次页面加载或退到后台还会再试
+                } finally {
+                    cookieFlushPending.set(false);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            cookieFlushPending.set(false);
+        }
     }
 
     private void rebuildWebView() {
@@ -486,7 +538,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        // onPause 一定会发生在进程被后台回收之前，在这里落盘最保险
+        flushCookies();
+    }
+
+    @Override
     protected void onDestroy() {
+        flushCookies();
         refreshHandler.removeCallbacksAndMessages(null);
         if (pendingFileCallback != null) {
             pendingFileCallback.onReceiveValue(null);
