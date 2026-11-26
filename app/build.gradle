@@ -19,8 +19,8 @@ android {
         minSdk 23
         targetSdk 37
         // CI 通过 -PversionName/-PversionCode 注入，本地构建保留默认值
-        versionCode((findProperty('versionCode') ?: 49) as int)
-        versionName((findProperty('versionName') ?: '1.1') as String)
+        versionCode((findProperty('versionCode') ?: 50) as int)
+        versionName((findProperty('versionName') ?: '1.1.1') as String)
     }
 
     signingConfigs {
